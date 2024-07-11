@@ -20,6 +20,7 @@
                 position: absolute;
                 top: 0;
                 left: 0;
+                touch-action: none;
             }
             .name {
                 position: absolute;
@@ -45,9 +46,9 @@
                 margin-left: 20px;
             }
             .prevent-select {
-                -webkit-user-select: none; /* Safari */
-                -ms-user-select: none; /* IE 10 and IE 11 */
-                user-select: none; /* Standard syntax */
+                -webkit-user-select: none;
+                -ms-user-select: none;
+                user-select: none;
             }
             a,
             a:hover,
@@ -81,6 +82,8 @@
             function resizeCanvas() {
                 canvas.width = window.innerWidth;
                 canvas.height = window.innerHeight;
+                ctx.fillStyle = "black";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
             }
 
             resizeCanvas();
@@ -90,6 +93,8 @@
             let lastX = null;
             let lastY = null;
             const positionQueue = [];
+            const isMobile =
+                "ontouchstart" in window || navigator.maxTouchPoints > 0;
 
             function drawPixel(x, y) {
                 ctx.fillStyle = "white";
@@ -132,21 +137,51 @@
                 }
             }
 
-            function queuePosition(e) {
-                const x = Math.floor(e.clientX / pixelSize) * pixelSize;
-                const y = Math.floor(e.clientY / pixelSize) * pixelSize;
-                positionQueue.push({ x, y });
+            function queuePosition(x, y) {
+                const adjustedX = Math.floor(x / pixelSize) * pixelSize;
+                const adjustedY = Math.floor(y / pixelSize) * pixelSize;
+                positionQueue.push({ x: adjustedX, y: adjustedY });
                 if (positionQueue.length === 1) {
                     requestAnimationFrame(processQueue);
                 }
             }
 
-            canvas.addEventListener("mousemove", queuePosition);
-            canvas.addEventListener("mouseout", () => {
-                lastX = null;
-                lastY = null;
-                positionQueue.length = 0;
-            });
+            function handleMouseMove(e) {
+                queuePosition(e.clientX, e.clientY);
+            }
+
+            function handleTouchMove(e) {
+                e.preventDefault();
+                const touch = e.touches[0];
+                queuePosition(touch.clientX, touch.clientY);
+            }
+
+            function handleTouchStart(e) {
+                e.preventDefault();
+                const touch = e.touches[0];
+                const x = Math.floor(touch.clientX / pixelSize) * pixelSize;
+                const y = Math.floor(touch.clientY / pixelSize) * pixelSize;
+
+                lastX = x;
+                lastY = y;
+                queuePosition(x, y);
+            }
+
+            if (isMobile) {
+                canvas.addEventListener("touchstart", handleTouchStart, {
+                    passive: false,
+                });
+                canvas.addEventListener("touchmove", handleTouchMove, {
+                    passive: false,
+                });
+            } else {
+                canvas.addEventListener("mousemove", handleMouseMove);
+                canvas.addEventListener("mouseout", () => {
+                    lastX = null;
+                    lastY = null;
+                    positionQueue.length = 0;
+                });
+            }
 
             // Initial black background
             ctx.fillStyle = "black";
