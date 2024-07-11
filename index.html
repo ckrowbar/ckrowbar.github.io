@@ -92,9 +92,10 @@
             const pixelSize = 4;
             let lastX = null;
             let lastY = null;
-            const positionQueue = [];
             const isMobile =
                 "ontouchstart" in window || navigator.maxTouchPoints > 0;
+            let isMouseDown = false;
+            let isDrawing = false;
 
             function drawPixel(x, y) {
                 ctx.fillStyle = "white";
@@ -124,47 +125,49 @@
                 }
             }
 
-            function processQueue() {
-                if (positionQueue.length > 0) {
-                    const { x, y } = positionQueue.shift();
-                    if (lastX !== null && lastY !== null) {
-                        drawLine(lastX, lastY, x, y);
-                    } else {
-                        drawPixel(x, y);
-                    }
-                    [lastX, lastY] = [x, y];
-                    requestAnimationFrame(processQueue);
-                }
-            }
-
-            function queuePosition(x, y) {
+            function handleDraw(x, y) {
                 const adjustedX = Math.floor(x / pixelSize) * pixelSize;
                 const adjustedY = Math.floor(y / pixelSize) * pixelSize;
-                positionQueue.push({ x: adjustedX, y: adjustedY });
-                if (positionQueue.length === 1) {
-                    requestAnimationFrame(processQueue);
+
+                if (!isDrawing) {
+                    isDrawing = true;
+                    lastX = adjustedX;
+                    lastY = adjustedY;
+                    drawPixel(adjustedX, adjustedY);
+                } else {
+                    drawLine(lastX, lastY, adjustedX, adjustedY);
+                    lastX = adjustedX;
+                    lastY = adjustedY;
                 }
             }
 
             function handleMouseMove(e) {
-                queuePosition(e.clientX, e.clientY);
+                if (!isMouseDown) {
+                    handleDraw(e.clientX, e.clientY);
+                }
+            }
+
+            function handleMouseDown() {
+                isMouseDown = true;
+                isDrawing = false;
+            }
+
+            function handleMouseUp() {
+                isMouseDown = false;
+                isDrawing = false;
             }
 
             function handleTouchMove(e) {
                 e.preventDefault();
                 const touch = e.touches[0];
-                queuePosition(touch.clientX, touch.clientY);
+                handleDraw(touch.clientX, touch.clientY);
             }
 
             function handleTouchStart(e) {
                 e.preventDefault();
+                isDrawing = false;
                 const touch = e.touches[0];
-                const x = Math.floor(touch.clientX / pixelSize) * pixelSize;
-                const y = Math.floor(touch.clientY / pixelSize) * pixelSize;
-
-                lastX = x;
-                lastY = y;
-                queuePosition(x, y);
+                handleDraw(touch.clientX, touch.clientY);
             }
 
             if (isMobile) {
@@ -176,10 +179,11 @@
                 });
             } else {
                 canvas.addEventListener("mousemove", handleMouseMove);
+                canvas.addEventListener("mousedown", handleMouseDown);
+                canvas.addEventListener("mouseup", handleMouseUp);
                 canvas.addEventListener("mouseout", () => {
-                    lastX = null;
-                    lastY = null;
-                    positionQueue.length = 0;
+                    isMouseDown = false;
+                    isDrawing = false;
                 });
             }
 
